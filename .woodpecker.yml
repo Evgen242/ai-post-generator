@@ -6,7 +6,7 @@ steps:
   - name: deploy
     image: appleboy/drone-ssh
     settings:
-      host: 103.125.216.110
+      host: localhost
       username: deploy
       key: |
 $(cat ~/.ssh/github_actions_deploy | sed 's/^/        /')
