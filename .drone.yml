@@ -1,8 +1,11 @@
 kind: pipeline
-name: test
+name: deploy
 
 steps:
-  - name: test
+  - name: deploy
     image: alpine
     commands:
-      - echo "Drone works!"
+      - cd /var/www/apps/post-generator
+      - git pull origin master
+      - sudo systemctl restart post-generator
+      - curl -I http://127.0.0.1:8502
