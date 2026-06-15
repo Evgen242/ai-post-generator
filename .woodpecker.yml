@@ -1,14 +1,11 @@
-when:
-  event: push
-  branch: master
-
-steps:
-  - name: deploy
+pipeline:
+  deploy:
     image: appleboy/drone-ssh
+    secrets: [ssh_key]
     settings:
       host: localhost
       username: deploy
-      key:
+      key: 
         from_secret: ssh_key
       port: 22
       script:
