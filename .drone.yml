@@ -16,3 +16,34 @@ steps:
         - sudo systemctl restart post-generator
         - sleep 3
         - curl -I http://127.0.0.1:8502
+
+  - name: notify
+    image: appleboy/drone-telegram
+    settings:
+      token:
+        from_secret: telegram_token
+      to:
+        from_secret: telegram_chat_id
+      message: |
+        🚀 Деплой AI Post Generator успешен!
+        📦 Проект: {{.Repo.Name}}
+        🌿 Ветка: {{.Build.Branch}}
+        💻 Коммит: {{.Build.Commit}}
+        🔗 Ссылка: https://aigenerator.myvnc.com
+    when:
+      status: success
+
+  - name: notify_fail
+    image: appleboy/drone-telegram
+    settings:
+      token:
+        from_secret: telegram_token
+      to:
+        from_secret: telegram_chat_id
+      message: |
+        ❌ Ошибка деплоя AI Post Generator!
+        📦 Проект: {{.Repo.Name}}
+        🌿 Ветка: {{.Build.Branch}}
+        💻 Коммит: {{.Build.Commit}}
+    when:
+      status: failure
