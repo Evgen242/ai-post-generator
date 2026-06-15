@@ -8,8 +8,8 @@ steps:
     settings:
       host: localhost
       username: deploy
-      key: |
-$(cat ~/.ssh/github_actions_deploy | sed 's/^/        /')
+      key:
+        from_secret: ssh_key
       port: 22
       script:
         - cd /var/www/apps/post-generator
