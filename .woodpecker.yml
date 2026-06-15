@@ -3,18 +3,13 @@ when:
   branch: master
 
 steps:
-  - name: install-dependencies
-    image: python:3.10-slim
-    commands:
-      - pip install -r requirements.txt
-
-  - name: deploy-to-vps
+  - name: deploy
     image: appleboy/drone-ssh
     settings:
       host: 103.125.216.110
       username: deploy
-      key:
-        from_secret: ssh_key
+      key: |
+$(cat ~/.ssh/github_actions_deploy | sed 's/^/        /')
       port: 22
       script:
         - cd /var/www/apps/post-generator
