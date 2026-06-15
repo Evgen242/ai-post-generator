@@ -20,30 +20,8 @@ steps:
   - name: notify
     image: appleboy/drone-telegram
     settings:
-      token:
-        from_secret: telegram_token
-      to:
-        from_secret: telegram_chat_id
-      message: |
-        🚀 Деплой AI Post Generator успешен!
-        📦 Проект: {{.Repo.Name}}
-        🌿 Ветка: {{.Build.Branch}}
-        💻 Коммит: {{.Build.Commit}}
-        🔗 Ссылка: https://aigenerator.myvnc.com
+      token: 8371059723:AAH93MIdz7vrlylsD3LaCJkYQByf2AZk6GI
+      to: 7785678797
+      message: 🚀 Деплой успешен! {{.Repo.Name}} обновлён.
     when:
       status: success
-
-  - name: notify_fail
-    image: appleboy/drone-telegram
-    settings:
-      token:
-        from_secret: telegram_token
-      to:
-        from_secret: telegram_chat_id
-      message: |
-        ❌ Ошибка деплоя AI Post Generator!
-        📦 Проект: {{.Repo.Name}}
-        🌿 Ветка: {{.Build.Branch}}
-        💻 Коммит: {{.Build.Commit}}
-    when:
-      status: failure
