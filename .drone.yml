@@ -4,9 +4,16 @@ name: deploy
 steps:
   - name: deploy
     image: alpine
+    volumes:
+      - name: app
+        path: /var/www/apps/post-generator
     commands:
-      - echo "Deploy step"
       - cd /var/www/apps/post-generator
       - git pull origin master
       - sudo systemctl restart post-generator
       - curl -I http://127.0.0.1:8502
+
+volumes:
+  - name: app
+    host:
+      path: /var/www/apps/post-generator
