@@ -8,6 +8,7 @@ steps:
       - name: app
         path: /var/www/apps/post-generator
     commands:
+      - apk add --no-cache git
       - cd /var/www/apps/post-generator
       - git pull origin master
       - sudo systemctl restart post-generator
