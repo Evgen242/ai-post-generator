@@ -1,0 +1,25 @@
+when:
+  event: push
+  branch: master
+
+steps:
+  - name: install-dependencies
+    image: python:3.10-slim
+    commands:
+      - pip install -r requirements.txt
+
+  - name: deploy-to-vps
+    image: appleboy/drone-ssh
+    settings:
+      host: 103.125.216.110
+      username: deploy26
+      key:
+        from_secret: ssh_key
+      port: 22
+      script:
+        - cd /var/www/apps/post-generator
+        - git pull origin master
+        - sudo systemctl restart post-generator
+        - sleep 3
+        - curl -I http://127.0.0.1:8502
+    secrets: [ssh_key]
