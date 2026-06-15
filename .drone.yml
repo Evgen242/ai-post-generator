@@ -18,10 +18,11 @@ steps:
         - curl -I http://127.0.0.1:8502
 
   - name: notify
-    image: appleboy/drone-telegram
-    settings:
-      token: 8371059723:AAH93MIdz7vrlylsD3LaCJkYQByf2AZk6GI
-      to: 7785678797
-      message: 🚀 Деплой успешен! {{.Repo.Name}} обновлён.
+    image: curlimages/curl
+    commands:
+      - |
+        curl -s -X POST "https://api.telegram.org/bot8371059723:AAH93MIdz7vrlylsD3LaCJkYQByf2AZk6GI/sendMessage" \
+          -d chat_id="7785678797" \
+          -d text="🚀 Деплой AI Post Generator успешен!%0AПроект: ai-post-generator%0AСсылка: https://aigenerator.myvnc.com"
     when:
       status: success
