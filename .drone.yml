@@ -3,24 +3,16 @@ name: deploy
 
 steps:
   - name: deploy
-    image: docker
-    volumes:
-      - name: app
-        path: /var/www/apps/post-generator
-      - name: docker_sock
-        path: /var/run/docker.sock
-    commands:
-      - apk add --no-cache git curl
-      - git config --global --add safe.directory /var/www/apps/post-generator
-      - cd /var/www/apps/post-generator
-      - git pull origin master
-      - docker restart post-generator
-      - curl -I http://127.0.0.1:8502
-
-volumes:
-  - name: app
-    host:
-      path: /var/www/apps/post-generator
-  - name: docker_sock
-    host:
-      path: /var/run/docker.sock
+    image: appleboy/drone-ssh
+    settings:
+      host: localhost
+      username: deploy
+      key:
+        from_secret: ssh_key
+      port: 22
+      script:
+        - cd /var/www/apps/post-generator
+        - git pull origin master
+        - sudo systemctl restart post-generator
+        - sleep 3
+        - curl -I http://127.0.0.1:8502
