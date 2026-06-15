@@ -1,16 +1,5 @@
 pipeline:
-  deploy:
-    image: appleboy/drone-ssh
-    secrets: [ssh_key]
-    settings:
-      host: localhost
-      username: deploy
-      key: 
-        from_secret: ssh_key
-      port: 22
-      script:
-        - cd /var/www/apps/post-generator
-        - git pull origin master
-        - sudo systemctl restart post-generator
-        - sleep 3
-        - curl -I http://127.0.0.1:8502
+  test:
+    image: alpine
+    commands:
+      - echo "Woodpecker pipeline is working"
