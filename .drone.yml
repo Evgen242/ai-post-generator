@@ -5,6 +5,7 @@ steps:
   - name: deploy
     image: alpine
     commands:
+      - echo "Deploy step"
       - cd /var/www/apps/post-generator
       - git pull origin master
       - sudo systemctl restart post-generator
