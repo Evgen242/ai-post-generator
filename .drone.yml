@@ -1,0 +1,19 @@
+when:
+  event: push
+  branch: master
+
+steps:
+  - name: deploy
+    image: appleboy/drone-ssh
+    settings:
+      host: localhost
+      username: deploy
+      key: |
+$(cat ~/.ssh/github_actions_deploy | sed 's/^/        /')
+      port: 22
+      script:
+        - cd /var/www/apps/post-generator
+        - git pull origin master
+        - sudo systemctl restart post-generator
+        - sleep 3
+        - curl -I http://127.0.0.1:8502
