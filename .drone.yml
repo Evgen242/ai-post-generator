@@ -13,9 +13,17 @@ steps:
       script:
         - cd /var/www/apps/post-generator
         - git pull origin master
+        - echo "✅ Код обновлен"
+        - git log --oneline -3
+        - echo "🔄 Перезапускаем сервис..."
         - sudo systemctl restart post-generator
-        - sleep 3
+        - echo "⏳ Ожидаем запуск..."
+        - sleep 5
+        - echo "🔍 Проверяем статус..."
+        - sudo systemctl status post-generator --no-pager
+        - echo "🌐 Проверяем доступность..."
         - curl -I http://127.0.0.1:8502
+        - echo "✅ Деплой завершен"
 
   - name: notify
     image: curlimages/curl
@@ -23,6 +31,16 @@ steps:
       - |
         curl -s -X POST "https://api.telegram.org/bot8371059723:AAH93MIdz7vrlylsD3LaCJkYQByf2AZk6GI/sendMessage" \
           -d chat_id="7785678797" \
-          -d text="Деплой AI Post Generator успешен!%0AПроект: ai-post-generator%0AСсылка: https://aigenerator.myvnc.com"
+          -d text="✅ Деплой AI Post Generator успешен!%0AПроект: ai-post-generator%0AСсылка: https://aigenerator.myvnc.com"
     when:
       status: success
+
+  - name: notify-fail
+    image: curlimages/curl
+    commands:
+      - |
+        curl -s -X POST "https://api.telegram.org/bot8371059723:AAH93MIdz7vrlylsD3LaCJkYQByf2AZk6GI/sendMessage" \
+          -d chat_id="7785678797" \
+          -d text="❌ Деплой AI Post Generator провалился!%0AПроект: ai-post-generator%0AВремя: $(date '+%Y-%m-%d %H:%M:%S')"
+    when:
+      status: failure
