@@ -16,3 +16,4 @@ graph TD
 - **Триггер:** push в Codeberg → Webhook → Drone CI
 - **Пайплайн:** `.drone.yml` (test → deploy)
 - **Деплой:** SSH → VPS → git pull → restart сервиса# Test drone Tue Jun 23 10:20:55 AM UTC 2026
+# Test deploy Tue Jun 23 10:25:59 AM UTC 2026
