@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+*.log
+cron*.log
+errors.log
+posts.log
+special.log
