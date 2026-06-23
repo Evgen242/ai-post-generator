@@ -9,7 +9,10 @@ graph TD
     E -->|обновляет код| F["/home/deploy/ai-post-generator"]
     F -->|перезапуск| G["Приложение (Streamlit на порту 8501)"]
     G -->|доступ| H["https://aigenerator.myvnc.com"]
+```
 
-# trigger pipeline
-# Webhook test
-# Test CI/CD pipeline Mon Jun 15 11:59:45 AM UTC 2026
+### Описание
+
+- **Триггер:** push в Codeberg → Webhook → Drone CI
+- **Пайплайн:** `.drone.yml` (test → deploy)
+- **Деплой:** SSH → VPS → git pull → restart сервиса
