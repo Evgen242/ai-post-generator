@@ -9,6 +9,9 @@ graph TD
     E -->|обновляет код| F["/home/deploy/ai-post-generator"]
     F -->|перезапуск| G["Приложение (Streamlit на порту 8501)"]
     G -->|доступ| H["https://aigenerator.myvnc.com"]
+
+    C -->|уведомление| I["Telegram бот"]
+    I -->|успех/ошибка| A
 ```
 
 ### Описание
