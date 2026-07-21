@@ -58,9 +58,12 @@ jobs:
             echo "🚀 Запускаем новый контейнер..."
             sudo docker compose up -d
             
-            echo "✅ Проверяем версию..."
-            sleep 3
-            sudo docker exec post-generator grep "языка" /app/🏠_Главная.py || echo "❌ Версия не обновилась!"
+            echo "✅ Проверяем работоспособность..."
+            sleep 5
+            curl -f http://127.0.0.1:8501 || echo "⚠️ Приложение не отвечает, но контейнер запущен"
+            
+            echo "🧹 Очищаем старые образы..."
+            sudo docker image prune -f
 
       - name: Telegram notification
         uses: appleboy/telegram-action@master
