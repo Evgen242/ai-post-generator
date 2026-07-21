@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   app:
-    build: .
+    image: evgen1771/ai-post-generator:latest
     container_name: post-generator
     restart: always
     ports:
-      - "8082:8501"
+      - "8501:8501"
     volumes:
       - ./logs:/app/logs
       - ./drone-data:/app/drone-data
