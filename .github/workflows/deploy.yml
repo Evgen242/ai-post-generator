@@ -14,8 +14,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -45,39 +43,21 @@ jobs:
           script: |
             cd /var/www/apps/post-generator/ai-post-generator
             
-            # Останавливаем и удаляем старый контейнер
-            echo "🛑 Останавливаем старый контейнер..."
-            sudo docker stop post-generator 2>/dev/null || true
-            sudo docker rm post-generator 2>/dev/null || true
+            echo "🛑 Останавливаем compose..."
+            sudo docker compose down
             
-            # Удаляем старый локальный образ (принудительно)
-            echo "🗑️ Удаляем старый локальный образ..."
+            echo "🗑️ Удаляем старый образ..."
             sudo docker rmi ${{ env.DOCKER_IMAGE }}:latest 2>/dev/null || true
             
-            # Скачиваем последний образ
             echo "📦 Скачиваем последний образ..."
             sudo docker pull ${{ env.DOCKER_IMAGE }}:latest
             
-            # Запускаем новый контейнер
-            echo "🚀 Запускаем новый контейнер..."
-            sudo docker run -d \
-              --name post-generator \
-              -p 8501:8501 \
-              -v $(pwd)/logs:/app/logs \
-              -v $(pwd)/drone-data:/app/drone-data \
-              --env-file .env \
-              -e TZ=Europe/Moscow \
-              --restart always \
-              ${{ env.DOCKER_IMAGE }}:latest
+            echo "🚀 Запускаем compose..."
+            sudo docker compose up -d
             
-            # Проверяем, что контейнер запустился
-            sleep 5
-            echo "✅ Проверяем статус контейнера..."
-            sudo docker ps | grep post-generator
-            
-            # Очищаем старые образы
-            echo "🧹 Очищаем старые образы..."
-            sudo docker image prune -f
+            echo "✅ Проверяем статус..."
+            sleep 3
+            sudo docker compose ps
 
       - name: Telegram notification
         uses: appleboy/telegram-action@master
@@ -87,5 +67,4 @@ jobs:
           message: |
             ✅ Деплой ai-post-generator успешен!
             📦 Образ: ${{ env.DOCKER_IMAGE }}:latest
-            🔗 Commit: ${{ github.sha }}
             🌐 Сайт: https://autolot25.ddns.net:8082
