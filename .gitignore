@@ -5,3 +5,6 @@ cron*.log
 errors.log
 posts.log
 special.log
+.env
+.env.backup
+*.log
