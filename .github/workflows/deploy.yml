@@ -43,10 +43,14 @@ jobs:
           script: |
             cd /var/www/apps/post-generator/ai-post-generator
             
+            # Логинимся в Docker Hub на VPS
+            echo "🔐 Логинимся в Docker Hub..."
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | sudo docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+            
             echo "🛑 Останавливаем compose..."
             sudo docker compose down
             
-            echo "🗑️ Удаляем старый контейнер (если есть)..."
+            echo "🗑️ Удаляем старый контейнер..."
             sudo docker rm post-generator 2>/dev/null || true
             
             echo "🗑️ Удаляем старый образ..."
