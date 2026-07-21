@@ -5,8 +5,8 @@ graph TD
     A["Разработчик (git push)"] -->|отправляет код| B["GitHub (репозиторий)"]
     B -->|триггер через push| C["GitHub Actions"]
     C -->|запускает пайплайн| D[".github/workflows/deploy.yml"]
-    C -->|сборка образа| E["Docker Hub (evgen1771/ai-post-generator)"]
-    E -->|скачивание образа| F["VPS сервер (103.125.216.112)"]
+    C -->|сборка образа| E["Docker Hub (аккаунт/ai-post-generator)"]
+    E -->|скачивание образа| F["VPS сервер "]
     F -->|запуск контейнера| G["Приложение (Streamlit на порту 8501)"]
     G -->|доступ через nginx| H["https://autolot25.ddns.net:8082"]
 
@@ -29,7 +29,7 @@ graph TD
 
 Доступ: https://autolot25.ddns.net:8082
 
-Логин: admin / Bash_2026
+Логин: авторизация
 
 Технологии: Streamlit, Python, PostgreSQL, Docker
 
