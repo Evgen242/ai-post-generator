@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: post-generator
+    restart: always
+    ports:
+      - "8080:8501"
+    volumes:
+      - ./logs:/app/logs
+      - ./drone-data:/app/drone-data
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Moscow
+    command: streamlit run 🏠_Главная.py --server.port=8501 --server.address=0.0.0.0 --server.enableCORS=false --server.enableXsrfProtection=false
