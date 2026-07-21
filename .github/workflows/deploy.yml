@@ -28,8 +28,8 @@ jobs:
         context: .
         push: true
         tags: |
-          ghcr.io/${{ github.repository }}:${{ github.sha }}
           ghcr.io/${{ github.repository }}:latest
+          ghcr.io/${{ github.repository }}:${{ github.sha }}
     
     - name: Deploy to Server
       uses: appleboy/ssh-action@v0.1.5
@@ -39,7 +39,7 @@ jobs:
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ secrets.SERVER_PORT }}
         script: |
-          cd /var/www/apps/post-generator
+          cd /var/www/apps/post-generator/ai-post-generator
           docker compose pull
           docker compose down
           docker compose up -d
