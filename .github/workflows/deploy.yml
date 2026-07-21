@@ -34,8 +34,6 @@ jobs:
           tags: |
             ${{ env.DOCKER_IMAGE }}:latest
             ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
@@ -46,36 +44,46 @@ jobs:
           port: 2222
           script: |
             cd /var/www/apps/post-generator/ai-post-generator
+            
             # Останавливаем и удаляем старый контейнер
             echo "🛑 Останавливаем старый контейнер..."
             sudo docker stop post-generator 2>/dev/null || true
             sudo docker rm post-generator 2>/dev/null || true
-  
+            
             # Удаляем старый локальный образ (принудительно)
             echo "🗑️ Удаляем старый локальный образ..."
             sudo docker rmi ${{ env.DOCKER_IMAGE }}:latest 2>/dev/null || true
-  
+            
             # Скачиваем последний образ
             echo "📦 Скачиваем последний образ..."
             sudo docker pull ${{ env.DOCKER_IMAGE }}:latest
-  
+            
             # Запускаем новый контейнер
             echo "🚀 Запускаем новый контейнер..."
             sudo docker run -d \
-            --name post-generator \
-            -p 8501:8501 \
-            -v $(pwd)/logs:/app/logs \
-            -v $(pwd)/drone-data:/app/drone-data \
-            --env-file .env \
-            -e TZ=Europe/Moscow \
-            --restart always \
-            ${{ env.DOCKER_IMAGE }}:latest
+              --name post-generator \
+              -p 8501:8501 \
+              -v $(pwd)/logs:/app/logs \
+              -v $(pwd)/drone-data:/app/drone-data \
+              --env-file .env \
+              -e TZ=Europe/Moscow \
+              --restart always \
+              ${{ env.DOCKER_IMAGE }}:latest
+            
+            # Проверяем, что контейнер запустился
+            sleep 5
+            echo "✅ Проверяем статус контейнера..."
+            sudo docker ps | grep post-generator
+            
+            # Очищаем старые образы
+            echo "🧹 Очищаем старые образы..."
+            sudo docker image prune -f
 
-        - name: Telegram notification
-          uses: appleboy/telegram-action@master
-          with:
-            to: ${{ secrets.TELEGRAM_CHAT_ID }}
-            token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      - name: Telegram notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           message: |
             ✅ Деплой ai-post-generator успешен!
             📦 Образ: ${{ env.DOCKER_IMAGE }}:latest
