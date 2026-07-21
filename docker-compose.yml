@@ -6,7 +6,7 @@ services:
     container_name: post-generator
     restart: always
     ports:
-      - "8080:8501"
+      - "8082:8501"
     volumes:
       - ./logs:/app/logs
       - ./drone-data:/app/drone-data

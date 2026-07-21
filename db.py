@@ -1,16 +1,19 @@
 """
 Модуль работы с PostgreSQL
 """
+import os
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
 import hashlib
+import secrets
+import json
 
 DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'post_generator_db',
-    'user': 'post_generator',
-    'password': 'strong_password_here'
+    'host': os.getenv('DB_HOST', '172.17.0.1'),
+    'database': os.getenv('DB_NAME', 'post_generator_db'),
+    'user': os.getenv('DB_USER', 'post_generator'),
+    'password': os.getenv('DB_PASSWORD', 'post_generator_123')
 }
 
 def get_connection():
@@ -20,13 +23,13 @@ def init_db():
     conn = get_connection()
     cur = conn.cursor()
     
-    # Таблица пользователей с языком
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username VARCHAR(100) UNIQUE NOT NULL,
             email VARCHAR(200) UNIQUE,
             password VARCHAR(255) NOT NULL,
+            salt VARCHAR(64) NOT NULL,
             telegram_id VARCHAR(100) UNIQUE,
             credits INTEGER DEFAULT 10,
             plan VARCHAR(50) DEFAULT 'free',
@@ -58,181 +61,263 @@ def init_db():
         )
     """)
     
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id)")
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            notification_enabled BOOLEAN DEFAULT TRUE,
+            language VARCHAR(10) DEFAULT 'ru',
+            PRIMARY KEY (user_id)
+        )
+    """)
+    
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_avatars (
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            avatar_data TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id)
+        )
+    """)
     
     conn.commit()
-    cur.close()
     conn.close()
-    print("✅ База данных PostgreSQL готова")
-
-init_db()
 
 def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+    salt = secrets.token_hex(16)
+    hash_obj = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+    return salt, hash_obj.hex()
+
+def verify_password(password, salt, stored_hash):
+    hash_obj = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+    return hash_obj.hex() == stored_hash
+
+# === ОСНОВНЫЕ ФУНКЦИИ ===
 
 def register_user(username, password, email=None, telegram_id=None, ip=None, fingerprint=None, language='ru'):
     conn = get_connection()
     cur = conn.cursor()
     try:
+        salt, password_hash = hash_password(password)
         cur.execute("""
-            INSERT INTO users (username, email, password, telegram_id, reg_ip, fingerprint, language)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO users (username, email, password, salt, telegram_id, reg_ip, fingerprint, language)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (username, email, hash_password(password), telegram_id, ip, fingerprint, language))
+        """, (username, email, password_hash, salt, telegram_id, ip, fingerprint, language))
         user_id = cur.fetchone()[0]
+        cur.execute("INSERT INTO user_settings (user_id, language) VALUES (%s, %s)", (user_id, language))
+        cur.execute("INSERT INTO user_avatars (user_id) VALUES (%s) ON CONFLICT (user_id) DO NOTHING", (user_id,))
         conn.commit()
-        return user_id, "Регистрация успешна"
+        return user_id, "Регистрация успешна!"
     except psycopg2.IntegrityError as e:
         conn.rollback()
-        if 'username' in str(e):
+        if "username" in str(e):
             return None, "Пользователь с таким логином уже существует"
-        elif 'email' in str(e):
-            return None, "Email уже используется"
-        return None, "Ошибка регистрации"
+        elif "email" in str(e):
+            return None, "Пользователь с таким email уже существует"
+        elif "telegram_id" in str(e):
+            return None, "Этот Telegram ID уже зарегистрирован"
+        return None, f"Ошибка регистрации: {e}"
     finally:
-        cur.close()
         conn.close()
 
 def login_user(username, password):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT id, username, credits, plan, verified, language 
-        FROM users 
-        WHERE username=%s AND password=%s
-    """, (username, hash_password(password)))
+    cur.execute("SELECT * FROM users WHERE username = %s", (username,))
     user = cur.fetchone()
-    if user:
-        cur.execute("UPDATE users SET last_login=%s WHERE id=%s", (datetime.now(), user['id']))
+    conn.close()
+    if not user:
+        return None
+    if verify_password(password, user['salt'], user['password']):
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s", (user['id'],))
         conn.commit()
-    cur.close()
-    conn.close()
-    return user
+        conn.close()
+        return dict(user)
+    return None
 
-def get_user_language(user_id):
+def get_user_by_username(username):
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT language FROM users WHERE id=%s", (user_id,))
-    result = cur.fetchone()
-    cur.close()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cur.fetchone()
     conn.close()
-    return result[0] if result else 'ru'
+    return dict(user) if user else None
 
-def update_user_language(user_id, language):
+def get_user_by_id(user_id):
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE users SET language=%s WHERE id=%s", (language, user_id))
-    conn.commit()
-    cur.close()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+    user = cur.fetchone()
     conn.close()
+    return dict(user) if user else None
 
 def get_user_credits(user_id):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT credits FROM users WHERE id=%s", (user_id,))
+    cur.execute("SELECT credits FROM users WHERE id = %s", (user_id,))
     result = cur.fetchone()
-    cur.close()
     conn.close()
     return result[0] if result else 0
 
 def use_credit(user_id):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE users SET credits = credits - 1 WHERE id=%s AND credits > 0", (user_id,))
-    affected = cur.rowcount
+    cur.execute(
+        "UPDATE users SET credits = credits - 1 WHERE id = %s AND credits > 0 RETURNING credits",
+        (user_id,)
+    )
+    result = cur.fetchone()
     conn.commit()
-    cur.close()
     conn.close()
-    return affected > 0
+    return result[0] if result else None
 
 def add_credits(user_id, amount):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE users SET credits = credits + %s WHERE id=%s", (amount, user_id))
+    cur.execute(
+        "UPDATE users SET credits = credits + %s WHERE id = %s RETURNING credits",
+        (amount, user_id)
+    )
+    new_credits = cur.fetchone()[0]
     conn.commit()
-    cur.close()
     conn.close()
+    return new_credits
 
-def save_post(user_id, topic, post):
+def update_user_credits(user_id, amount):
+    return add_credits(user_id, amount)
+
+def save_post(user_id, topic, content):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO posts (user_id, topic, post)
-        VALUES (%s, %s, %s)
-    """, (user_id, topic, post))
+    cur.execute(
+        "INSERT INTO posts (user_id, topic, post) VALUES (%s, %s, %s) RETURNING id",
+        (user_id, topic, content)
+    )
+    post_id = cur.fetchone()[0]
     conn.commit()
-    cur.close()
     conn.close()
+    return post_id
+
+def create_post(user_id, topic, content):
+    return save_post(user_id, topic, content)
 
 def get_user_posts(user_id, limit=10):
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT topic, post, created_at 
-        FROM posts 
-        WHERE user_id=%s 
-        ORDER BY created_at DESC 
-        LIMIT %s
-    """, (user_id, limit))
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        "SELECT * FROM posts WHERE user_id = %s ORDER BY created_at DESC LIMIT %s",
+        (user_id, limit)
+    )
     posts = cur.fetchall()
-    cur.close()
     conn.close()
-    return posts
+    return [dict(post) for post in posts]
 
-def check_reg_limit(ip, fingerprint, max_per_day=1):
+def get_user_language(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT language FROM users WHERE id = %s", (user_id,))
+    result = cur.fetchone()
+    conn.close()
+    return result[0] if result else 'ru'
+
+def update_user_language(user_id, language):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE users SET language = %s WHERE id = %s",
+        (language, user_id)
+    )
+    cur.execute(
+        "UPDATE user_settings SET language = %s WHERE user_id = %s",
+        (language, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+def check_reg_limit(ip, fingerprint, max_per_day=5):
+    """Check registration limit"""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
         SELECT COUNT(*) FROM reg_attempts 
-        WHERE ip=%s AND created_at > NOW() - INTERVAL '24 hours'
-    """, (ip,))
-    ip_count = cur.fetchone()[0]
-    cur.execute("""
-        SELECT COUNT(*) FROM reg_attempts 
-        WHERE fingerprint=%s AND created_at > NOW() - INTERVAL '24 hours'
-    """, (fingerprint,))
-    fp_count = cur.fetchone()[0]
-    cur.close()
+        WHERE (ip = %s OR fingerprint = %s) 
+        AND created_at > NOW() - INTERVAL '1 day'
+    """, (ip, fingerprint))
+    count = cur.fetchone()[0]
     conn.close()
-    if ip_count >= max_per_day or fp_count >= max_per_day:
-        return False, f"Слишком много регистраций. Лимит: {max_per_day} в день"
+    if count >= max_per_day:
+        return False, "Превышен лимит попыток регистрации (максимум 5 в день)"
     return True, "OK"
 
 def log_reg_attempt(ip, fingerprint):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO reg_attempts (ip, fingerprint) VALUES (%s, %s)", (ip, fingerprint))
+    cur.execute(
+        "INSERT INTO reg_attempts (ip, fingerprint) VALUES (%s, %s)",
+        (ip, fingerprint)
+    )
     conn.commit()
-    cur.close()
     conn.close()
 
-def save_avatar(user_id, avatar_data):
-    """Сохранение аватара в БД (base64)"""
+def check_reg_attempt(ip, fingerprint):
+    return check_reg_limit(ip, fingerprint)
+
+def get_user_settings(user_id):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM user_settings WHERE user_id = %s", (user_id,))
+    settings = cur.fetchone()
+    conn.close()
+    return dict(settings) if settings else None
+
+def update_user_settings(user_id, **kwargs):
     conn = get_connection()
     cur = conn.cursor()
-    
-    # Сначала добавляем колонку avatar, если её нет
-    try:
-        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT")
-        conn.commit()
-    except:
-        conn.rollback()
-    
-    cur.execute("UPDATE users SET avatar = %s WHERE id = %s", (avatar_data, user_id))
+    for key, value in kwargs.items():
+        cur.execute(
+            f"UPDATE user_settings SET {key} = %s WHERE user_id = %s",
+            (value, user_id)
+        )
     conn.commit()
-    cur.close()
     conn.close()
 
 def get_avatar(user_id):
-    """Получение аватара пользователя"""
     conn = get_connection()
     cur = conn.cursor()
-    try:
-        cur.execute("SELECT avatar FROM users WHERE id = %s", (user_id,))
-        result = cur.fetchone()
-    except:
-        result = None
-    cur.close()
+    cur.execute("SELECT avatar_data FROM user_avatars WHERE user_id = %s", (user_id,))
+    result = cur.fetchone()
     conn.close()
     return result[0] if result else None
+
+def save_avatar(user_id, avatar_data):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO user_avatars (user_id, avatar_data, updated_at) 
+        VALUES (%s, %s, CURRENT_TIMESTAMP)
+        ON CONFLICT (user_id) DO UPDATE 
+        SET avatar_data = EXCLUDED.avatar_data, updated_at = CURRENT_TIMESTAMP
+    """, (user_id, avatar_data))
+    conn.commit()
+    conn.close()
+
+def get_all_users():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT id, username, email, credits, plan, language, created_at, last_login FROM users ORDER BY id")
+    users = cur.fetchall()
+    conn.close()
+    return [dict(user) for user in users]
+
+def get_user_by_telegram(telegram_id):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM users WHERE telegram_id = %s", (telegram_id,))
+    user = cur.fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+# Initialize database
+init_db()
