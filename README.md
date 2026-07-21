@@ -1,22 +1,39 @@
-## CI/CD Архитектура: Codeberg → Drone → VPS
+##  CI/CD Архитектура: GitHub → GitHub Actions → VPS
 
 ```mermaid
 graph TD
-    A["Разработчик (git push)"] -->|отправляет код| B["Codeberg (репозиторий)"]
-    B -->|триггер через вебхук| C["Drone CI (сервер)"]
-    C -->|запускает пайплайн| D[".drone.yml (шаги: test & deploy)"]
-    D -->|по SSH| E["VPS сервер (aigenerator.myvnc.com)"]
-    E -->|обновляет код| F["/home/deploy/ai-post-generator"]
-    F -->|перезапуск| G["Приложение (Streamlit на порту 8501)"]
-    G -->|доступ| H["https://aigenerator.myvnc.com"]
+    A["Разработчик (git push)"] -->|отправляет код| B["GitHub (репозиторий)"]
+    B -->|триггер через push| C["GitHub Actions"]
+    C -->|запускает пайплайн| D[".github/workflows/deploy.yml"]
+    C -->|сборка образа| E["Docker Hub (evgen1771/ai-post-generator)"]
+    E -->|скачивание образа| F["VPS сервер (103.125.216.112)"]
+    F -->|запуск контейнера| G["Приложение (Streamlit на порту 8501)"]
+    G -->|доступ через nginx| H["https://autolot25.ddns.net:8082"]
 
-    C -->|уведомление| I["Telegram бот"]
+    C -->|уведомление| I["Telegram бот (@SeRveDog_bot)"]
     I -->|успех/ошибка| A
 ```
+Описание
+Триггер: push в main → GitHub Actions
 
-### Описание
+Пайплайн: .github/workflows/deploy.yml (build → push → deploy)
 
-- **Триггер:** push в Codeberg → Webhook → Drone CI
-- **Пайплайн:** `.drone.yml` (test → deploy)
-- **Деплой:** SSH → VPS → git pull → restart сервиса# Test drone Tue Jun 23 10:20:55 AM UTC 2026
-# Test deploy Tue Jun 23 10:25:59 AM UTC 2026
+Сборка: Docker образ → Docker Hub
+
+Деплой: SSH → VPS → docker pull → docker compose up -d
+
+Уведомления: Telegram бот @SeRveDog_bot
+
+📦 Приложение
+Название: Telegram Post Generator
+
+Доступ: https://autolot25.ddns.net:8082
+
+Логин: admin / Bash_2026
+
+Технологии: Streamlit, Python, PostgreSQL, Docker
+
+AI: OpenRouter (текст) + Pollinations (изображения)
+
+Языки: 4
+
