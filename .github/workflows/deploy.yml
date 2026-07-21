@@ -46,18 +46,21 @@ jobs:
             echo "🛑 Останавливаем compose..."
             sudo docker compose down
             
+            echo "🗑️ Удаляем старый контейнер (если есть)..."
+            sudo docker rm post-generator 2>/dev/null || true
+            
             echo "🗑️ Удаляем старый образ..."
             sudo docker rmi ${{ env.DOCKER_IMAGE }}:latest 2>/dev/null || true
             
             echo "📦 Скачиваем последний образ..."
             sudo docker pull ${{ env.DOCKER_IMAGE }}:latest
             
-            echo "🚀 Запускаем compose..."
+            echo "🚀 Запускаем новый контейнер..."
             sudo docker compose up -d
             
-            echo "✅ Проверяем статус..."
+            echo "✅ Проверяем версию..."
             sleep 3
-            sudo docker compose ps
+            sudo docker exec post-generator grep "языка" /app/🏠_Главная.py || echo "❌ Версия не обновилась!"
 
       - name: Telegram notification
         uses: appleboy/telegram-action@master
